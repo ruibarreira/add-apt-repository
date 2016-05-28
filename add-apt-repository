@@ -1,0 +1,88 @@
+#!/bin/bash
+#
+# Description: Automates adding an Ubuntu PPA to a Debian installation
+#
+# The script's messages are bilingual: Dutch/English. English
+# will be used whenever $LANG is set to anything other than nl*.
+#
+# Requires: apt-get, apt-key
+#
+# Usage: Place the script in "/usr/local/bin", do a
+# "chmod +x /usr/local/bin/add-apt-repository" as root,
+# and run "add-apt-repository ppa:ppa_user/ppa_name" from the command line.
+#
+# Uncomment for debugging
+#
+# set -x
+
+# Start script
+
+echo "${LANG}" | grep -q "^nl" && \
+echo -e "\n\033[1;33mSTATUS\033[0m: Script \"$(basename $0)\" is gestart...\n" || \
+echo -e "\n\033[1;33mSTATUS\033[0m: Script \"$(basename $0)\" is started...\n"
+
+# Check to see if we are root.
+
+if [ "${UID}" != "0" ]; then
+
+    echo "${LANG}" | grep -q "^nl" && \
+    echo -e "Je moet root zijn !!\n" || \
+    echo -e "You must be root !!\n"
+
+ sleep 2
+
+ exit 1
+
+fi
+
+if [ "$#" -eq "1" ]; then
+
+    NM="$(uname -a && date)"
+    NAME="$(echo ${NM} | md5sum | cut -f1 -d " ")"
+    PPA="$(echo "$1" | cut -d ":" -f2 -s)"
+    PPAFORMAT="$(echo ${PPA} | tr "/" "-")"
+    PPADESC="$(echo ${PPA} | sed 's|.*\/||;s|\-| |g;s/\<./\U&/g')"
+
+    echo "${LANG}" | grep -q "^nl" && \
+    echo "Kies codenaam van de Ubuntu uitgave:" || \
+    echo "Choose Ubuntu distribution codename:"
+
+    select CNAME in lucid maverick natty oneiric precise quantal raring saucy trusty utopic; do
+
+   CODENAME="${CNAME:=maverick}" && break
+
+    done
+
+    if [ -z "${PPA}" ]; then
+
+   echo "${LANG}" | grep -q "^nl" && \
+   echo -e "PPA naam niet gevonden!\nGEBRUIK: $(basename $0) ppa:ppa_gebruiker/ppa_naam" || \
+   echo -e "PPA name not found!\nUSAGE: $(basename $0) ppa:ppa_user/ppa_name"
+
+    else
+
+   echo "${LANG}" | grep -q "^nl" && \
+   echo "${PPADESC} PPA wordt toegevoegd..." || \
+   echo "Adding ${PPADESC} PPA..."
+
+   echo "deb http://ppa.launchpad.net/${PPA}/ubuntu ${CODENAME} main #${PPADESC} PPA" >> /etc/apt/sources.list.d/${PPAFORMAT}-${CODENAME}.list
+
+   apt-get update >> /dev/null 2> /tmp/${NAME}_apt_add_key.txt
+
+   KEY="$(cat /tmp/${NAME}_apt_add_key.txt | cut -d":" -f6 | cut -d" " -f3)"
+
+   apt-key adv --keyserver keyserver.ubuntu.com --recv-keys ${KEY}
+
+   rm -rf /tmp/${NAME}_apt_add_key.txt
+
+    fi
+
+else
+
+   echo "${LANG}" | grep -q "^nl" && \
+   echo -e "Hulpmiddel om PPA bronnen aan je Debian installatie toe te voegen\nGEBRUIK: $(basename $0) ppa:gebruiker/ppa_naam" || \
+   echo -e "Utility to add PPA repositories to your Debian machine\nUSAGE: $(basename $0) ppa:user/ppa_name"
+
+fi
+
+exit 0
